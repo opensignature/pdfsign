@@ -14,7 +14,7 @@ Other standard library: (libjpeg, libfreetype, libz, libpthread, libfontconfig)
 
 Compile with:
 
-g++ pdfsign.cpp -lpodofo -ljpeg -lfreetype -lpng -lz -lcrypto -lpthread -lfontconfig
+g++ pdfsign.cpp -I/usr/include/podofo/ -lpodofo -ljpeg -lfreetype -lpng -lz -lcrypto -lpthread -lfontconfig -o pdfsign
 
 
 Execute with:
