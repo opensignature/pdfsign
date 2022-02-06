@@ -1,6 +1,6 @@
-/***************************************************************************
+/***************************************************************************                             
+ *   Copyright (C) 2020 by antonio at piumarossa dot it                    *
  *   Copyright (C) 2016 by zyx at litePDF dot cz                           *
- *   Copyright (C) 2020 by Antonio Iacono (antiac at gmail dot com)        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
