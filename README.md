@@ -20,3 +20,5 @@ g++ pdfsign.cpp -I/usr/include/podofo/ -lpodofo -ljpeg -lfreetype -lpng -lz -lcr
 Execute with:
 
 pdfsign -in infile.pdf -id idkey -cert certificate.pem
+
+(*) extract idkey and certificate.pem with pkcs11-tool ( https://github.com/OpenSC/OpenSC )
