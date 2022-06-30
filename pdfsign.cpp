@@ -1,5 +1,5 @@
 /***************************************************************************                             
- *   Copyright (C) 2020 by antonio at piumarossa dot it                    *
+ *   Copyright (C) 2022 by antonio at piumarossa dot it                    *
  *   Copyright (C) 2016 by zyx at litePDF dot cz                           *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -30,7 +30,6 @@
 #include <openssl/ssl.h>
 #include <openssl/cms.h>
 #include <openssl/err.h>
-#include <openssl/store.h>
 #include <openssl/engine.h>
 
 #if defined(_WIN64)
@@ -74,24 +73,20 @@ static void raise_podofo_error_with_opensslerror( const char *detail )
     PODOFO_RAISE_ERROR_INFO( ePdfError_InvalidHandle, err.c_str() );
 }
 
-static void sign_with_signer( PdfSignOutputDevice &signer, const char *module,
-    const char *pin, const char *id, const char* md)
+static void sign_with_signer( PdfSignOutputDevice &signer, const char *id, const char *certfile, const char* md)
 {
     unsigned int uBufferLen = 65535, len;
     char *pBuffer;
     X509 *cert = NULL;
+    BIO *bio_cert = NULL;
     EVP_PKEY *key = NULL;
     CMS_ContentInfo *cms = NULL;
-    OSSL_STORE_CTX *store_ctx = NULL;
     ENGINE *engine = NULL;
     const EVP_MD *sign_md = NULL;
     typedef struct pw_cb_data {
         const void *password;
         const char *prompt_info;
     } PW_CB_DATA;
-
-    char certuri[512];
-    char privuri[512];
 
     while( pBuffer = reinterpret_cast<char *>( podofo_malloc( sizeof( char ) * uBufferLen) ), !pBuffer )
     {
@@ -124,24 +119,6 @@ static void sign_with_signer( PdfSignOutputDevice &signer, const char *module,
 
     ENGINE_init(engine);
 
-    sprintf(certuri,"pkcs11:type=cert;module-path=%s;id=%s",module,id);
-    char *uri = &certuri[0];
-    if ((store_ctx = OSSL_STORE_open(uri, NULL, NULL, NULL, NULL)) == NULL)
-        raise_podofo_error_with_opensslerror( "Failed to open STORE" );
-
-    OSSL_STORE_INFO *info = OSSL_STORE_load(store_ctx);
-
-    if (!info) {
-        fprintf(stderr, "ID not found\nUse openssl storeutl -engine pkcs11 ");
-        fprintf(stderr, "'pkcs11:module-path=%s'\n",module);
-        raise_podofo_error_with_opensslerror( "Failed to find ID" );
-    }
-
-    cert = OSSL_STORE_INFO_get0_CERT(info);
-
-    if (!cert)
-        raise_podofo_error_with_opensslerror( "Failed to get certificate" );
-
     cms = CMS_sign(NULL, NULL, NULL, mem, flags);
     if (cms == NULL)
         raise_podofo_error_with_opensslerror( "Failed to sign" );
@@ -161,14 +138,10 @@ static void sign_with_signer( PdfSignOutputDevice &signer, const char *module,
 
     CMS_SignerInfo *si;
 
-    sprintf(privuri,"pkcs11:type=private;module-path=%s;id=%s;pin-value=%s",
-            module,id,pin);
-    char *keyuri = &privuri[0];
-
     PW_CB_DATA cb_data;
     cb_data.password = NULL;
-    cb_data.prompt_info = keyuri;
-    key = ENGINE_load_private_key(engine, keyuri, NULL, &cb_data);
+    cb_data.prompt_info = id;
+    key = ENGINE_load_private_key(engine, id, NULL, &cb_data);
 
     if (key == NULL)
         raise_podofo_error_with_opensslerror( "Key is null" );
@@ -177,6 +150,17 @@ static void sign_with_signer( PdfSignOutputDevice &signer, const char *module,
 
     if (sign_md == NULL)
         raise_podofo_error_with_opensslerror( "MD is NULL" );
+
+    bio_cert = BIO_new_file(certfile, "rb");
+
+    if(bio_cert != NULL)
+        cert = PEM_read_bio_X509(bio_cert, NULL, NULL, NULL);
+
+    if (cert == NULL)
+       cert = d2i_X509_bio(bio_cert, NULL);
+
+    if (cert == NULL)
+        raise_podofo_error_with_opensslerror( "Failed to load certificate" );
 
     si = CMS_add1_signer(cms, cert, key, sign_md, flags);
 
@@ -241,9 +225,8 @@ static void print_help( bool bOnlyUsage )
     std::cout << "Usage: podofosign [arguments]" << std::endl;
     std::cout << "The required arguments:" << std::endl;
     std::cout << "  -in [inputfile] ... an input file to sign; if no -out is set, updates the input file" << std::endl;
-    std::cout << "  -module [module] ... PKCS11 module path" << std::endl;
     std::cout << "  -id [id] ... key id" << std::endl;
-    std::cout << "  -pin [pin] ... a PIN to unlock smartcard" << std::endl;
+    std::cout << "  -cert [cert] ... x509 certificate" << std::endl;
     std::cout << "The optional arguments:" << std::endl;
     std::cout << "  -out [outputfile] ... an output file to save the signed document to; cannot be the same as the input file" << std::endl;
     std::cout << "  -md [md] ... message digest algorithm" << std::endl;
@@ -642,10 +625,9 @@ int main( int argc, char* argv[] )
 {
     const char *inputfile = NULL;
     const char *outputfile = NULL;
-    const char *module = NULL;
     const char *id = NULL;
+    const char *cert = NULL;
     const char *md = NULL;
-    const char *pin = NULL;
     const char *reason = "I agree";
     const char *sigsizestr = NULL;
     const char *annot_units = "mm";
@@ -671,21 +653,17 @@ int main( int argc, char* argv[] )
         {
             value = &outputfile;
         }
-        else if( strcmp( argv[ii], "-module" ) == 0 )
-        {
-            value = &module;
-        }
         else if( strcmp( argv[ii], "-id" ) == 0 )
         {
             value = &id;
         }
+        else if( strcmp( argv[ii], "-cert" ) == 0 )
+        {
+            value = &cert;
+        }
         else if( strcmp( argv[ii], "-md" ) == 0 )
         {
             value = &md;
-        }
-        else if( strcmp( argv[ii], "-pin" ) == 0 )
-        {
-            value = &pin;
         }
         else if( strcmp( argv[ii], "-reason" ) == 0 )
         {
@@ -800,7 +778,7 @@ int main( int argc, char* argv[] )
         ii++;
     }
 
-    if( !inputfile || !module || !id || !pin )
+    if( !inputfile || !id || !cert)
     {
         if( argc != 1 )
             std::cerr << "Not all required arguments specified." << std::endl;
@@ -1012,7 +990,7 @@ int main( int argc, char* argv[] )
         // We seek at the beginning of the file
         signer.Seek( 0 );
 
-        sign_with_signer( signer, module, pin, id, md );
+        sign_with_signer( signer, id, cert, md );
 
         signer.Flush();
     }
