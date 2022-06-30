@@ -5,7 +5,7 @@ Requirements:
 
 PoDoFo (http://podofo.sourceforge.net/)
 
-PKCS11 engine (https://github.com/opensignature/pkcs11engine)
+PKCS#11 wrapper library (https://github.com/OpenSC/libp11)
 
 OpenSSL ver. 3 (https://github.com/openssl/openssl)
 
@@ -19,7 +19,7 @@ g++ pdfsign.cpp -I/usr/include/podofo/ -lpodofo -ljpeg -lfreetype -lpng -lz -lcr
 
 Execute with:
 
-pdfsign -in infile.pdf -module modulepkcs11 -id idkey -pin pin
+pdfsign -in infile.pdf -id idkey -cert certificate.pem
 
 (*) modulepkcs11: 
 is a library provided by the token provider like:
