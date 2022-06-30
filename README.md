@@ -5,8 +5,6 @@ Requirements:
 
 PoDoFo (http://podofo.sourceforge.net/)
 
-PKCS#11 wrapper library (https://github.com/OpenSC/libp11)
-
 OpenSSL ver. 3 (https://github.com/openssl/openssl)
 
 Other standard library: (libjpeg, libfreetype, libz, libpthread, libfontconfig)
