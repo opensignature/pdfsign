@@ -20,11 +20,3 @@ g++ pdfsign.cpp -I/usr/include/podofo/ -lpodofo -ljpeg -lfreetype -lpng -lz -lcr
 Execute with:
 
 pdfsign -in infile.pdf -id idkey -cert certificate.pem
-
-(*) modulepkcs11: 
-is a library provided by the token provider like:
-libbit4opki.so (Oberthur)
-opensc-pkcs11.so (OpenSC)
-libASEP11.so (Athena)
-libeTPkcs11.so (SafeNet)
-libsiecap11.so (Siemens)
